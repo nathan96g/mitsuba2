@@ -342,6 +342,17 @@ MTS_VARIANT void Shape<Float, Spectrum>::parameters_changed() {
         m_exterior_medium->parameters_changed();
 }
 
+MTS_VARIANT bool
+Shape<Float, Spectrum>::is_shapegroup() const {
+    return false;
+}
+
+MTS_VARIANT  const typename Shape<Float, Spectrum>::ShapeKDTree * 
+Shape<Float, Spectrum>::kdtree() const
+{
+    NotImplementedError("kdtree");
+}
+
 MTS_IMPLEMENT_CLASS_VARIANT(Shape, Object, "shape")
 MTS_INSTANTIATE_CLASS(Shape)
 NAMESPACE_END(mitsuba)

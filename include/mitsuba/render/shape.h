@@ -15,7 +15,7 @@ NAMESPACE_BEGIN(mitsuba)
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER Shape : public Object {
 public:
-    MTS_IMPORT_TYPES(BSDF, Medium, Emitter, Sensor);
+    MTS_IMPORT_TYPES(BSDF, Medium, Emitter, Sensor, ShapeKDTree);
 
     // Use 32 bit indices to keep track of indices to conserve memory
     using ScalarIndex = uint32_t;
@@ -299,6 +299,20 @@ public:
      * the same value as \ref primitive_count().
      */
     virtual ScalarSize effective_primitive_count() const;
+
+    /**
+     * \brief Return if the shape is a shapegroup or not
+     *
+     * \remark The default implementation return false.
+     */
+    virtual bool is_shapegroup() const; 
+    
+    /**
+     * \brief Return a pointer to the internal KD-tree (if any)
+     *
+     * \remark The default implementation throws an exception.
+     */
+    virtual const ShapeKDTree *kdtree() const;
 
 #if defined(MTS_ENABLE_EMBREE)
     /// Return the Embree version of this shape

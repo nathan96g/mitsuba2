@@ -4,51 +4,39 @@
 #include <mitsuba/render/shape.h>
 #include <mitsuba/core/transform.h>
 #include <mitsuba/render/interaction.h>
+#include <mitsuba/render/kdtree.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
 template <typename Float, typename Spectrum>
 class Instance final: public Shape<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Shape)
-    MTS_IMPORT_TYPES()
+    MTS_IMPORT_BASE(Shape, is_shapegroup)
+    MTS_IMPORT_TYPES(ShapeKDTree)
 
     using typename Base::ScalarSize;
 
     Instance(const Properties &props){
       m_transform = props.animated_transform("to_world", Transform4f());
+      
       for (auto &kv : props.objects()) {
-          Base *shapegroup = dynamic_cast<Base *>(kv.second.get());
-          if (shapegroup) {
+          Base *shape = dynamic_cast<Base *>(kv.second.get());
+          if (shape && shape->is_shapegroup()) {
               if (m_shapegroup)
-                  Throw("Only a single shapegroup can be specified per instance.");
-              m_shapegroup = shapegroup;
+                Throw("Only a single shapegroup can be specified per instance.");
+              m_shapegroup = shape;
           } else {
-              Throw("Only a single name reference can be specified per instance.");
+                Throw("Only a shapegroup can be specified in an instance.");
           }
       }
-      //Configuration
+
       if (!m_shapegroup)
           Throw("A reference to a 'shapegroup' must be specified!");
     }
 
-    /* Getters */
-
-    /// Return the object-to-world transformation used by this instance
-   // inline const AnimatedTransform *world_transform() const { return m_transform.get(); }
-    
-   // /// Return a pointer to the associated \ref ShapeGroup
-   // inline ShapeGroup* shapegroup() { return m_shapegroup; }
-//
-   // /// Return a pointer to the associated \ref ShapeGroup (const version)
-   // inline const ShapeGroup* shapegroup() const { return m_shapegroup.get(); }
-
-    /// Return the underlying animated transformation
- //   inline const AnimatedTransform *animated_transform() const { return m_transform.get(); }
-
    ScalarBoundingBox3f bbox() const override{
-       //const ShapeKDTree *kdtree = m_shapegroup->kd_tree();
-       const ScalarBoundingBox3f &bbox = m_shapegroup->bbox(); //kdtree->bbox();
+       const ShapeKDTree *kdtree = m_shapegroup->kdtree();
+       const ScalarBoundingBox3f &bbox = kdtree->bbox();
        if (!bbox.valid()) // the geometry group is empty
            return bbox;
        // Collect Key frame time
@@ -65,7 +53,6 @@ public:
                result.expand(trafo * bbox.corner(i));
        }
        return result;
-       //return m_shapegroup->bbox();
     }
 
     ScalarSize primitive_count() const override { return 0;}
@@ -84,24 +71,21 @@ public:
    std::pair<Mask, Float> ray_intersect(const Ray3f &ray, Float * cache,
                                          Mask active) const override {
         MTS_MASK_ARGUMENT(active);
-        
-    //    const ShapeKDTree *kdtree = m_shapegroup->kdree();
+        Throw("NO");
+        const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-    //    return kdtree->ray_intersect(trafo_ray, cache, active);
-    return m_shapegroup->ray_intersect(trafo_ray,cache,active);
+        return kdtree->template ray_intersect<false>(trafo_ray, cache, active);
     }
 
     Mask ray_test(const Ray3f &ray, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-       // const ShapeKDTree *kdtree = m_shapegroup->kdree();
+        const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-       // // TODO Optimization possible 
-       // return kdtree->template ray_intersect<true>(trafo_ray, (Float* ) nullptr, active).first;
-
-        return m_shapegroup->ray_test(trafo_ray, active);
+        // TODO Optimization possible 
+        return kdtree->template ray_intersect<true>(trafo_ray, (Float* ) nullptr, active).first;
     }
 
 
@@ -115,6 +99,7 @@ public:
             Ray3f trafo_ray(trafo.inverse() * ray);
             m_shapegroup->fill_surface_interaction(trafo_ray, cache, si_out, active);
     //    si_out = kdtree->create_surface_interaction(trafo_ray, /** t ??**/, cache); // TODO
+
         si_out.sh_frame.n = normalize(trafo * si_out.sh_frame.n);
         si_out.dp_du = trafo * si_out.dp_du;
         si_out.dp_dv = trafo * si_out.dp_dv;
