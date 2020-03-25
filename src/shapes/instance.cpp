@@ -145,10 +145,6 @@ public:
 
     /// Declare RTTI data structures
     MTS_DECLARE_CLASS()
-protected:
-    /// Important: declare a protected virtual destructor
-   // virtual ~Instance();
-
 private:
    ref<Base> m_shapegroup;
    ref<const AnimatedTransform> m_transform;
