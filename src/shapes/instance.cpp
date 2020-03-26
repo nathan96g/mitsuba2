@@ -23,8 +23,8 @@ public:
       
         for (auto &kv : props.objects()) {
             Base *shape = dynamic_cast<Base *>(kv.second.get());
-            if (shape) {
-                if (m_shapegroup)
+            if (shape && shape->is_shapegroup()) {
+                if (m_shapegroup )
                   Throw("Only a single shapegroup can be specified per instance.");
                 m_shapegroup = shape;
             } else {
@@ -37,7 +37,7 @@ public:
     }
 
    ScalarBoundingBox3f bbox() const override{
-       const ScalarBoundingBox3f &bbox = m_shapegroup->bbox();
+       const ScalarBoundingBox3f &bbox = m_shapegroup->shape()->bbox();
        if (!bbox.valid()) // the geometry group is empty
            return bbox;
        // Collect Key frame time
@@ -56,11 +56,8 @@ public:
        return result;
     }
 
-    ScalarSize primitive_count() const override { return 0;}
-
-    ScalarSize effective_primitive_count() const override { 
-        return m_shapegroup->primitive_count();
-    }
+    MTS_INLINE ScalarSize primitive_count() const override { return 0;}
+    MTS_INLINE ScalarSize effective_primitive_count() const override { return m_shapegroup->shape()->primitive_count();}
 
     //! @}
     // =============================================================
@@ -71,29 +68,29 @@ public:
 
    std::pair<Mask, Float> ray_intersect(const Ray3f &ray, Float * cache,
                                          Mask active) const override {
+        
         MTS_MASK_ARGUMENT(active);
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-        return m_shapegroup->ray_intersect(trafo_ray, cache, active);
+        return m_shapegroup->shape()->ray_intersect(trafo_ray, cache, active);
     }
 
     Mask ray_test(const Ray3f &ray, Mask active) const override {
+        
         MTS_MASK_ARGUMENT(active);
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-        // TODO Optimization possible 
-        return m_shapegroup->ray_test(trafo_ray, active);
+        return m_shapegroup->shape()->ray_test(trafo_ray, active);
     }
 
     void fill_surface_interaction(const Ray3f &ray, const Float * cache,
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-        Throw("fill_surface_interaction 7777777777777777777777777777");
 
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-        m_shapegroup->fill_surface_interaction(trafo_ray, cache, si_out, active);
+        m_shapegroup->shape()->fill_surface_interaction(trafo_ray, cache, si_out, active);
 
         si_out.sh_frame.n = normalize(trafo * si_out.sh_frame.n);
         si_out.dp_du = trafo * si_out.dp_du;

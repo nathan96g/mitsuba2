@@ -353,6 +353,12 @@ Shape<Float, Spectrum>::kdtree() const
     NotImplementedError("kdtree");
 }
 
+MTS_VARIANT  const typename Shape<Float, Spectrum>::Shape * 
+Shape<Float, Spectrum>::shape() const
+{
+    NotImplementedError("shape");
+}
+
 MTS_IMPLEMENT_CLASS_VARIANT(Shape, Object, "shape")
 MTS_INSTANTIATE_CLASS(Shape)
 NAMESPACE_END(mitsuba)

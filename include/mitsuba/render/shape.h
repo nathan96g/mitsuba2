@@ -314,6 +314,8 @@ public:
      */
     virtual const ShapeKDTree *kdtree() const;
 
+    virtual const Shape *shape() const;
+
 #if defined(MTS_ENABLE_EMBREE)
     /// Return the Embree version of this shape
     virtual RTCGeometry embree_geometry(RTCDevice device) const;

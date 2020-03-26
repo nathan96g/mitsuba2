@@ -12,12 +12,11 @@ template <typename Float, typename Spectrum>
 class ShapeGroup final: public Shape<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(Shape, is_emitter, is_sensor, m_id)
-    MTS_IMPORT_TYPES(ShapeKDTree)
+    MTS_IMPORT_TYPES()
 
     using typename Base::ScalarSize;
 
     ShapeGroup(const Properties &props) {
-        m_kdtree = new ShapeKDTree(props);
         // Add all the child or throw an error
         for (auto &kv : props.objects()) {
 
@@ -31,38 +30,26 @@ public:
                     Throw("Instancing of emitters is not supported");
                 if (shape->is_sensor())
                     Throw("Instancing of sensors is not supported");
-                else{
-                    m_kdtree->add_shape(shape);
-                    //if(m_kdtree)
-                    //    Throw("Only a single shape can be specified per instance.");
-                    //m_kdtree = shape;
+                else {
+                    if(m_shape)
+                        Throw("Only a single shape can be specified per instance.");
+                    m_shape = shape;
                 }
             } else {
                 Throw("Tried to add an unsupported object of type \"%s\"", kv.second);
             }
-        }
-
-        if (m_kdtree->primitive_count() < 100*1024)
-            m_kdtree->set_log_level(Trace);
-        if (!m_kdtree->ready())
-            m_kdtree->build();
     }
+    }
+    MTS_INLINE const Base *shape() const override { return m_shape.get() ;}
 
     MTS_INLINE ScalarBoundingBox3f bbox() const override{return BoundingBox3f();}
 
     MTS_INLINE ScalarFloat surface_area() const override { return 0.f;}
 
-    /// Return a pointer to the internal KD-tree
-    MTS_INLINE const ShapeKDTree *kdtree() const  override { return m_kdtree.get(); }
-
     MTS_INLINE bool is_shapegroup() const override { return true; }
 
-    ScalarSize primitive_count() const override { 
-        //return m_kdtree->primitive_count();
-        ScalarSize result = 0;
-        for (size_t i=0; i< m_kdtree->shape_count(); ++i)
-            result += m_kdtree->shape(i)->primitive_count();
-        return result;
+    ScalarSize primitive_count() const override {
+        return m_shape->primitive_count();
     }
 
     MTS_INLINE ScalarSize effective_primitive_count() const override { return 0; }
@@ -71,7 +58,7 @@ public:
         std::ostringstream oss;
             oss << "ShapeGroup[" << std::endl
                 << "  name = \"" << m_id << "\"," << std::endl
-                << "  prim_count = " << m_kdtree->primitive_count() << std::endl
+                << "  prim_count = " << m_shape->primitive_count() << std::endl
                 << "]";
         return oss.str();
     }
@@ -79,8 +66,7 @@ public:
     /// Declare RTTI data structures
     MTS_DECLARE_CLASS()
 private:
-    ref<ShapeKDTree> m_kdtree;
-    //ref<Base> m_kdtree;
+    ref<Base> m_shape;
 };
 
 /// Implement RTTI data structures
