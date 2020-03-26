@@ -17,26 +17,27 @@ public:
     using typename Base::ScalarSize;
 
     Instance(const Properties &props){
-      m_transform = props.animated_transform("to_world", Transform4f());
-      
-      for (auto &kv : props.objects()) {
-          Base *shape = dynamic_cast<Base *>(kv.second.get());
-          if (shape && shape->is_shapegroup()) {
-              if (m_shapegroup)
-                Throw("Only a single shapegroup can be specified per instance.");
-              m_shapegroup = shape;
-          } else {
-                Throw("Only a shapegroup can be specified in an instance.");
-          }
-      }
 
-      if (!m_shapegroup)
-          Throw("A reference to a 'shapegroup' must be specified!");
+        // Get the given transform in the xml file or a default one (identity)
+        m_transform = props.animated_transform("to_world", Transform4f());
+      
+        for (auto &kv : props.objects()) {
+            Base *shape = dynamic_cast<Base *>(kv.second.get());
+            if (shape) {
+                if (m_shapegroup)
+                  Throw("Only a single shapegroup can be specified per instance.");
+                m_shapegroup = shape;
+            } else {
+                  Throw("Only a shapegroup can be specified in an instance.");
+            }
+        }
+
+        if (!m_shapegroup)
+            Throw("A reference to a 'shapegroup' must be specified!");
     }
 
    ScalarBoundingBox3f bbox() const override{
-       const ShapeKDTree *kdtree = m_shapegroup->kdtree();
-       const ScalarBoundingBox3f &bbox = kdtree->bbox();
+       const ScalarBoundingBox3f &bbox = m_shapegroup->bbox();
        if (!bbox.valid()) // the geometry group is empty
            return bbox;
        // Collect Key frame time
@@ -71,34 +72,28 @@ public:
    std::pair<Mask, Float> ray_intersect(const Ray3f &ray, Float * cache,
                                          Mask active) const override {
         MTS_MASK_ARGUMENT(active);
-        Throw("NO");
-        const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-        return kdtree->template ray_intersect<false>(trafo_ray, cache, active);
+        return m_shapegroup->ray_intersect(trafo_ray, cache, active);
     }
 
     Mask ray_test(const Ray3f &ray, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
-
-        const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
         // TODO Optimization possible 
-        return kdtree->template ray_intersect<true>(trafo_ray, (Float* ) nullptr, active).first;
+        return m_shapegroup->ray_test(trafo_ray, active);
     }
-
-
 
     void fill_surface_interaction(const Ray3f &ray, const Float * cache,
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-    //    const ShapeKDTree *kdtree = m_shapegroup->kdtree();
-            const Transform4f &trafo = m_transform->eval(ray.time);
-            Ray3f trafo_ray(trafo.inverse() * ray);
-            m_shapegroup->fill_surface_interaction(trafo_ray, cache, si_out, active);
-    //    si_out = kdtree->create_surface_interaction(trafo_ray, /** t ??**/, cache); // TODO
+        Throw("fill_surface_interaction 7777777777777777777777777777");
+
+        const Transform4f &trafo = m_transform->eval(ray.time);
+        Ray3f trafo_ray(trafo.inverse() * ray);
+        m_shapegroup->fill_surface_interaction(trafo_ray, cache, si_out, active);
 
         si_out.sh_frame.n = normalize(trafo * si_out.sh_frame.n);
         si_out.dp_du = trafo * si_out.dp_du;
@@ -106,39 +101,6 @@ public:
         si_out.p = trafo * si_out.p;
         si_out.instance = this;
     }
-
-//    std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f &si,
-//                                                    bool shading_frame,
-//                                                    Mask active) const override {
-//        MTS_MASK_ARGUMENT(active);
-//
-//        /* Compute the inverse transformation */
-//        const Transform4f &trafo = m_transform->eval(si.time);
-//        const Transform4f inv_trafo = trafo.inverse();
-//
-//        /* The following is really super-inefficient, but it's
-//           needed to be able to deal with general transformations */
-//        SurfaceInteraction3f temp(si);
-//        temp.p = inv_trafo * si.p;
-//        temp.dp_du = inv_trafo * si.dp_du;
-//        temp.dp_dv = inv_trafo * si.dp_dv;
-//
-//        /* Determine the length of the transformed normal
-//           *before* it was re-normalized */
-//        Normal3f tn = trafo * normalize(inv_trafo * si.sh_frame.n);
-//        ScalarFloat inv_len = 1 / tn.length();
-//        tn *= inv_len;
-//
-//        std::pair<Vector3f, Vector3f> n_d(si.shape->normal_derivative(temp, shading_frame, active));
-//
-//        n_d.first = trafo * Normal3f(n_d.first) * inv_len;
-//        n_d.second = trafo * Normal3f(n_d.second) * inv_len;
-//
-//        n_d.first -= tn * dot(tn, n_d.first);
-//        n_d.second -= tn * dot(tn, n_d.second);
-//
-//        return n_d;
-//    }
 
     //! @}
     // =============================================================
