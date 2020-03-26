@@ -71,7 +71,7 @@ public:
    std::pair<Mask, Float> ray_intersect(const Ray3f &ray, Float * cache,
                                          Mask active) const override {
         MTS_MASK_ARGUMENT(active);
-        Throw("NO");
+
         const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
@@ -94,17 +94,19 @@ public:
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
+            SurfaceInteraction3f si(si_out);
     //    const ShapeKDTree *kdtree = m_shapegroup->kdtree();
             const Transform4f &trafo = m_transform->eval(ray.time);
             Ray3f trafo_ray(trafo.inverse() * ray);
-            m_shapegroup->fill_surface_interaction(trafo_ray, cache, si_out, active);
+            m_shapegroup->fill_surface_interaction(trafo_ray, cache, si, active);
     //    si_out = kdtree->create_surface_interaction(trafo_ray, /** t ??**/, cache); // TODO
 
-        si_out.sh_frame.n = normalize(trafo * si_out.sh_frame.n);
-        si_out.dp_du = trafo * si_out.dp_du;
-        si_out.dp_dv = trafo * si_out.dp_dv;
-        si_out.p = trafo * si_out.p;
-        si_out.instance = this;
+        si.sh_frame.n = normalize(trafo * si.sh_frame.n);
+        si.dp_du = trafo * si.dp_du;
+        si.dp_dv = trafo * si.dp_dv;
+        si.p = trafo * si.p;
+        si.instance = this;
+        si_out[active] = si;
     }
 
 //    std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f &si,

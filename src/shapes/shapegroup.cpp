@@ -31,12 +31,8 @@ public:
                     Throw("Instancing of emitters is not supported");
                 if (shape->is_sensor())
                     Throw("Instancing of sensors is not supported");
-                else{
+                else
                     m_kdtree->add_shape(shape);
-                    //if(m_kdtree)
-                    //    Throw("Only a single shape can be specified per instance.");
-                    //m_kdtree = shape;
-                }
             } else {
                 Throw("Tried to add an unsupported object of type \"%s\"", kv.second);
             }
@@ -48,14 +44,12 @@ public:
             m_kdtree->build();
     }
 
-    MTS_INLINE ScalarBoundingBox3f bbox() const override{return BoundingBox3f();}
-
-    MTS_INLINE ScalarFloat surface_area() const override { return 0.f;}
+    ScalarBoundingBox3f bbox() const override{return BoundingBox3f();}
+    ScalarFloat surface_area() const override { return 0.f;}
 
     /// Return a pointer to the internal KD-tree
-    MTS_INLINE const ShapeKDTree *kdtree() const  override { return m_kdtree.get(); }
-
-    MTS_INLINE bool is_shapegroup() const override { return true; }
+    const ShapeKDTree *kdtree() const  override { return m_kdtree.get(); }
+    bool is_shapegroup() const override { return true; }
 
     ScalarSize primitive_count() const override { 
         //return m_kdtree->primitive_count();
@@ -80,7 +74,6 @@ public:
     MTS_DECLARE_CLASS()
 private:
     ref<ShapeKDTree> m_kdtree;
-    //ref<Base> m_kdtree;
 };
 
 /// Implement RTTI data structures
