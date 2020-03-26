@@ -56,8 +56,8 @@ public:
        return result;
     }
 
-    MTS_INLINE ScalarSize primitive_count() const override { return 0;}
-    MTS_INLINE ScalarSize effective_primitive_count() const override { return m_shapegroup->shape()->primitive_count();}
+    ScalarSize primitive_count() const override { return 0;}
+    ScalarSize effective_primitive_count() const override { return m_shapegroup->shape()->primitive_count();}
 
     //! @}
     // =============================================================
@@ -87,16 +87,19 @@ public:
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
+        SurfaceInteraction3f si(si_out);
 
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-        m_shapegroup->shape()->fill_surface_interaction(trafo_ray, cache, si_out, active);
+        m_shapegroup->shape()->fill_surface_interaction(trafo_ray, cache, si, active);
 
-        si_out.sh_frame.n = normalize(trafo * si_out.sh_frame.n);
-        si_out.dp_du = trafo * si_out.dp_du;
-        si_out.dp_dv = trafo * si_out.dp_dv;
-        si_out.p = trafo * si_out.p;
-        si_out.instance = this;
+        si.sh_frame.n = normalize(trafo * si.sh_frame.n);
+        si.dp_du = trafo * si.dp_du;
+        si.dp_dv = trafo * si.dp_dv;
+        si.p = trafo * si.p;
+        si.instance = this;
+
+        si_out[active] = si;
     }
 
     //! @}
@@ -104,10 +107,6 @@ public:
 
     /// Declare RTTI data structures
     MTS_DECLARE_CLASS()
-protected:
-    /// Important: declare a protected virtual destructor
-   // virtual ~Instance();
-
 private:
    ref<Base> m_shapegroup;
    ref<const AnimatedTransform> m_transform;

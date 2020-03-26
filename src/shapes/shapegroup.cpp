@@ -40,19 +40,13 @@ public:
             }
     }
     }
-    MTS_INLINE const Base *shape() const override { return m_shape.get() ;}
+    const Base *shape() const override { return m_shape.get() ;}
+    ScalarBoundingBox3f bbox() const override{return BoundingBox3f();}
+    ScalarFloat surface_area() const override { return 0.f;}
+    bool is_shapegroup() const override { return true; }
 
-    MTS_INLINE ScalarBoundingBox3f bbox() const override{return BoundingBox3f();}
-
-    MTS_INLINE ScalarFloat surface_area() const override { return 0.f;}
-
-    MTS_INLINE bool is_shapegroup() const override { return true; }
-
-    ScalarSize primitive_count() const override {
-        return m_shape->primitive_count();
-    }
-
-    MTS_INLINE ScalarSize effective_primitive_count() const override { return 0; }
+    ScalarSize primitive_count() const override { return m_shape->primitive_count();}
+    ScalarSize effective_primitive_count() const override { return 0; }
 
     std::string to_string() const override {
         std::ostringstream oss;
