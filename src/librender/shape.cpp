@@ -353,7 +353,7 @@ Shape<Float, Spectrum>::kdtree() const
     NotImplementedError("kdtree");
 }
 
-MTS_VARIANT  const typename Shape<Float, Spectrum>::Shape * 
+MTS_VARIANT  const typename Shape<Float, Spectrum>::Shape* 
 Shape<Float, Spectrum>::shape() const
 {
     NotImplementedError("shape");

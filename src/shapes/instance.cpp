@@ -5,14 +5,15 @@
 #include <mitsuba/core/transform.h>
 #include <mitsuba/render/interaction.h>
 #include <mitsuba/render/kdtree.h>
+#include <mitsuba/render/bsdf.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
 template <typename Float, typename Spectrum>
 class Instance final: public Shape<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Shape, is_shapegroup)
-    MTS_IMPORT_TYPES(ShapeKDTree)
+    MTS_IMPORT_BASE(Shape, is_shapegroup, m_bsdf)
+    MTS_IMPORT_TYPES(ShapeKDTree, BSDF)
 
     using typename Base::ScalarSize;
 
@@ -22,18 +23,27 @@ public:
         m_transform = props.animated_transform("to_world", Transform4f());
       
         for (auto &kv : props.objects()) {
+            
             Base *shape = dynamic_cast<Base *>(kv.second.get());
+            BSDF *bsdf = dynamic_cast<BSDF *>(kv.second.get());
+
             if (shape && shape->is_shapegroup()) {
                 if (m_shapegroup )
                   Throw("Only a single shapegroup can be specified per instance.");
                 m_shapegroup = shape;
-            } else {
+            } else if(bsdf){
+                if (m_bsdf)
+                    Throw("Only a single BSDF child object can be specified per shape.");
+                m_bsdf = bsdf;
+            } else
                   Throw("Only a shapegroup can be specified in an instance.");
-            }
         }
-
         if (!m_shapegroup)
             Throw("A reference to a 'shapegroup' must be specified!");
+
+                    // Create a default diffuse BSDF if needed.
+        if (!m_bsdf)
+            m_bsdf = PluginManager::instance()->create_object<BSDF>(Properties("diffuse"));
     }
 
    ScalarBoundingBox3f bbox() const override{
@@ -56,7 +66,7 @@ public:
        return result;
     }
 
-    ScalarSize primitive_count() const override { return 0;}
+    ScalarSize primitive_count() const override { return 1;}
     ScalarSize effective_primitive_count() const override { return m_shapegroup->shape()->primitive_count();}
 
     //! @}
@@ -70,6 +80,7 @@ public:
                                          Mask active) const override {
         
         MTS_MASK_ARGUMENT(active);
+
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
         return m_shapegroup->shape()->ray_intersect(trafo_ray, cache, active);
@@ -86,7 +97,7 @@ public:
     void fill_surface_interaction(const Ray3f &ray, const Float * cache,
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
-
+                
         SurfaceInteraction3f si(si_out);
 
         const Transform4f &trafo = m_transform->eval(ray.time);

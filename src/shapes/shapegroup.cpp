@@ -35,10 +35,9 @@ public:
                         Throw("Only a single shape can be specified per instance.");
                     m_shape = shape;
                 }
-            } else {
+            } else
                 Throw("Tried to add an unsupported object of type \"%s\"", kv.second);
-            }
-    }
+        }
     }
     const Base *shape() const override { return m_shape.get() ;}
     ScalarBoundingBox3f bbox() const override{return BoundingBox3f();}
