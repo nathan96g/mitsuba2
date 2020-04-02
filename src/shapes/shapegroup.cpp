@@ -16,7 +16,8 @@ public:
 
     using typename Base::ScalarSize;
 
-    ShapeGroup(const Properties &props) {
+    ShapeGroup(const Properties &props){
+        m_id = props.id(); 
         m_kdtree = new ShapeKDTree(props);
         // Add all the child or throw an error
         for (auto &kv : props.objects()) {
@@ -52,11 +53,11 @@ public:
     bool is_shapegroup() const override { return true; }
 
     ScalarSize primitive_count() const override { 
-        //return m_kdtree->primitive_count();
-        ScalarSize result = 0;
-        for (size_t i=0; i< m_kdtree->shape_count(); ++i)
-            result += m_kdtree->shape(i)->primitive_count();
-        return result;
+        return m_kdtree->primitive_count();
+        //ScalarSize result = 0;
+        //for (size_t i=0; i< m_kdtree->shape_count(); ++i)
+        //    result += m_kdtree->shape(i)->primitive_count();
+        //return result;
     }
 
     MTS_INLINE ScalarSize effective_primitive_count() const override { return 0; }

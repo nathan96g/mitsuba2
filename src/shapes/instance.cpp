@@ -5,19 +5,22 @@
 #include <mitsuba/core/transform.h>
 #include <mitsuba/render/interaction.h>
 #include <mitsuba/render/kdtree.h>
+#include <mitsuba/render/bsdf.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
 template <typename Float, typename Spectrum>
 class Instance final: public Shape<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Shape, is_shapegroup)
-    MTS_IMPORT_TYPES(ShapeKDTree)
+    MTS_IMPORT_BASE(Shape, is_shapegroup, m_id, m_bsdf)
+    MTS_IMPORT_TYPES(ShapeKDTree, BSDF)
 
     using typename Base::ScalarSize;
 
     Instance(const Properties &props){
-      m_transform = props.animated_transform("to_world", Transform4f());
+    
+        m_id = props.id(); 
+        m_transform = props.animated_transform("to_world", Transform4f());
       
       for (auto &kv : props.objects()) {
           Base *shape = dynamic_cast<Base *>(kv.second.get());
@@ -32,6 +35,8 @@ public:
 
       if (!m_shapegroup)
           Throw("A reference to a 'shapegroup' must be specified!");
+
+      m_bsdf = PluginManager::instance()->create_object<BSDF>(Properties("diffuse"));
     }
 
    ScalarBoundingBox3f bbox() const override{
@@ -55,7 +60,7 @@ public:
        return result;
     }
 
-    ScalarSize primitive_count() const override { return 0;}
+    ScalarSize primitive_count() const override { return 1;}
 
     ScalarSize effective_primitive_count() const override { 
         return m_shapegroup->primitive_count();
@@ -84,7 +89,6 @@ public:
         const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
-        // TODO Optimization possible 
         return kdtree->template ray_intersect<true>(trafo_ray, (Float* ) nullptr, active).first;
     }
 
@@ -98,7 +102,7 @@ public:
     //    const ShapeKDTree *kdtree = m_shapegroup->kdtree();
             const Transform4f &trafo = m_transform->eval(ray.time);
             Ray3f trafo_ray(trafo.inverse() * ray);
-            m_shapegroup->fill_surface_interaction(trafo_ray, cache, si, active);
+            m_shapegroup->kdtree()->shape(0)->fill_surface_interaction(trafo_ray, cache, si, active);
     //    si_out = kdtree->create_surface_interaction(trafo_ray, /** t ??**/, cache); // TODO
 
         si.sh_frame.n = normalize(trafo * si.sh_frame.n);
