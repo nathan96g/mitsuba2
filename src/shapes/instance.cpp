@@ -98,12 +98,10 @@ public:
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-            SurfaceInteraction3f si(si_out);
-    //    const ShapeKDTree *kdtree = m_shapegroup->kdtree();
-            const Transform4f &trafo = m_transform->eval(ray.time);
-            Ray3f trafo_ray(trafo.inverse() * ray);
-            m_shapegroup->kdtree()->shape(0)->fill_surface_interaction(trafo_ray, cache, si, active);
-    //    si_out = kdtree->create_surface_interaction(trafo_ray, /** t ??**/, cache); // TODO
+        const ShapeKDTree *kdtree = m_shapegroup->kdtree();
+        const Transform4f &trafo = m_transform->eval(ray.time);
+        Ray3f trafo_ray(trafo.inverse() * ray);
+        SurfaceInteraction3f si (kdtree->create_surface_interaction(trafo_ray, si_out.t, cache));
 
         si.sh_frame.n = normalize(trafo * si.sh_frame.n);
         si.dp_du = trafo * si.dp_du;
