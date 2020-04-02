@@ -35,8 +35,6 @@ public:
 
       if (!m_shapegroup)
           Throw("A reference to a 'shapegroup' must be specified!");
-
-      m_bsdf = PluginManager::instance()->create_object<BSDF>(Properties("diffuse"));
     }
 
    ScalarBoundingBox3f bbox() const override{
@@ -101,6 +99,8 @@ public:
         const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
+
+        // create_surface_interaction use the cache to fill correctly the surface interaction
         SurfaceInteraction3f si (kdtree->create_surface_interaction(trafo_ray, si_out.t, cache));
 
         si.sh_frame.n = normalize(trafo * si.sh_frame.n);
