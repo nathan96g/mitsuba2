@@ -105,13 +105,14 @@ public:
 
         // todo
         //si.wi = normalize(trafo * si.wi);
-        si.sh_frame.n = normalize(trafo * si.sh_frame.n);
+        si.sh_frame.n = normalize(trafo.transform_affine(si.sh_frame.n));
+        //si.sh_frame = Frame3f(normalize(trafo * si.sh_frame.n));
         //si.sh_frame.s = trafo * si.sh_frame.s;
         //si.sh_frame.t = trafo * si.sh_frame.t;
-        si.n = normalize(trafo * si.n);
-        si.dp_du = trafo * si.dp_du;
-        si.dp_dv = trafo * si.dp_dv;
-        si.p = trafo * si.p;
+        si.n = normalize(trafo.transform_affine(si.n));
+        si.dp_du = trafo.transform_affine(si.dp_du);
+        si.dp_dv = trafo.transform_affine(si.dp_dv);
+        si.p = trafo.transform_affine(si.p);
         si.instance = this;
         si_out[active] = si;
     }
