@@ -20,7 +20,7 @@ public:
     Instance(const Properties &props){
     
         m_id = props.id(); 
-        m_transform = props.animated_transform("to_world", Transform4f());
+        m_transform = props.animated_transform("to_world", ScalarTransform4f());
       
       for (auto &kv : props.objects()) {
           Base *shape = dynamic_cast<Base *>(kv.second.get());
@@ -43,15 +43,15 @@ public:
        if (!bbox.valid()) // the geometry group is empty
            return bbox;
        // Collect Key frame time
-       std::set<Float> times;
+       std::set<ScalarFloat> times;
        for(size_t i=0; i<m_transform->size(); ++i)
-            times.insert(m_transform->operator[](i).time);
+            times.insert((*m_transform)[i].time);
                  
-        if (times.size() == 0) times.insert((Float) 0);
+        if (times.size() == 0) times.insert((ScalarFloat) 0);
 
        ScalarBoundingBox3f result;
-       for (typename std::set<Float>::iterator it = times.begin(); it != times.end(); ++it) {
-           const Transform4f &trafo = m_transform->eval(*it);
+       for (typename std::set<ScalarFloat>::iterator it = times.begin(); it != times.end(); ++it) {
+           const ScalarTransform4f &trafo = m_transform->eval(*it);
            for (int i=0; i<8; ++i)
                result.expand(trafo * bbox.corner(i));
        }
@@ -101,7 +101,7 @@ public:
         Ray3f trafo_ray(trafo.inverse() * ray);
 
         // create_surface_interaction use the cache to fill correctly the surface interaction
-        SurfaceInteraction3f si (kdtree->create_surface_interaction(trafo_ray, si_out.t, cache));
+        SurfaceInteraction3f si(kdtree->create_surface_interaction(trafo_ray, si_out.t, cache));
 
         // todo
         //si.wi = normalize(trafo * si.wi);

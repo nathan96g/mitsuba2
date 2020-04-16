@@ -45,7 +45,7 @@ public:
             m_kdtree->build();
     }
 
-    ScalarBoundingBox3f bbox() const override{return BoundingBox3f();}
+    ScalarBoundingBox3f bbox() const override{return ScalarBoundingBox3f();}
     ScalarFloat surface_area() const override { return 0.f;}
 
     /// Return a pointer to the internal KD-tree
