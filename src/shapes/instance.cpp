@@ -131,7 +131,6 @@ public:
         Normal3f tn = trafo * normalize(inv_trafo * si.sh_frame.n);
         Float inv_len = 1 / norm(tn);
         tn *= inv_len; // normalize
-
         std::pair<Vector3f, Vector3f> n_d = temp.normal_derivative(shading_frame, active);
 
         // apply inverse transpose to  dndu dans dndv
