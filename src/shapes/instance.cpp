@@ -103,12 +103,7 @@ public:
         // create_surface_interaction use the cache to fill correctly the surface interaction
         SurfaceInteraction3f si(kdtree->create_surface_interaction(trafo_ray, si_out.t, cache));
 
-        // todo
-        //si.wi = normalize(trafo * si.wi);
         si.sh_frame.n = normalize(trafo.transform_affine(si.sh_frame.n));
-        //si.sh_frame = Frame3f(normalize(trafo * si.sh_frame.n));
-        //si.sh_frame.s = trafo * si.sh_frame.s;
-        //si.sh_frame.t = trafo * si.sh_frame.t;
         si.n = normalize(trafo.transform_affine(si.n));
         si.dp_du = trafo.transform_affine(si.dp_du);
         si.dp_dv = trafo.transform_affine(si.dp_dv);
@@ -117,38 +112,37 @@ public:
         si_out[active] = si;
     }
 
-    //std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f &si,
-    //                                                bool shading_frame,
-    //                                                Mask active) const override {
-    //    MTS_MASK_ARGUMENT(active);
-//
-    //    /* Compute the inverse transformation */
-    //    const Transform4f &trafo = m_transform->eval(si.time);
-    //    const Transform4f inv_trafo = trafo.inverse();
-//
-    //    /* The following is really super-inefficient, but it's
-    //       needed to be able to deal with general transformations */
-    //    SurfaceInteraction3f temp(si);
-    //    temp.p = inv_trafo * si.p;
-    //    temp.dp_du = inv_trafo * si.dp_du;
-    //    temp.dp_dv = inv_trafo * si.dp_dv;
-//
-    //    /* Determine the length of the transformed normal
-    //       *before* it was re-normalized */
-    //    Normal3f tn = trafo * normalize(inv_trafo * si.sh_frame.n);
-    //    ScalarFloat inv_len = 1 / norm(tn);
-    //    tn *= inv_len;
-//
-    //    std::pair<Vector3f, Vector3f> n_d(si.shape->normal_derivative(temp, shading_frame, active));
-//
-    //    n_d.first = trafo * Normal3f(n_d.first) * inv_len;
-    //    n_d.second = trafo * Normal3f(n_d.second) * inv_len;
-//
-    //    n_d.first -= tn * dot(tn, n_d.first);
-    //    n_d.second -= tn * dot(tn, n_d.second);
-//
-    //    return n_d;
-    //}
+    std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f &si,
+                                                    bool shading_frame,
+                                                    Mask active) const override {
+        MTS_MASK_ARGUMENT(active);
+
+        /* Compute the inverse transformation */
+        const Transform4f &trafo = m_transform->eval(si.time);
+        const Transform4f inv_trafo = trafo.inverse();
+
+        SurfaceInteraction3f temp(si);
+        temp.p = inv_trafo * si.p;
+        temp.dp_du = inv_trafo * si.dp_du;
+        temp.dp_dv = inv_trafo * si.dp_dv;
+
+        /* Determine the length of the transformed normal
+           *before* it was re-normalized */
+        Normal3f tn = trafo * normalize(inv_trafo * si.sh_frame.n);
+        Float inv_len = 1 / norm(tn);
+        tn *= inv_len; // normalize
+
+        std::pair<Vector3f, Vector3f> n_d = temp.normal_derivative(shading_frame, active);
+
+        // apply inverse transpose to  dndu dans dndv
+        n_d.first = trafo * Normal3f(n_d.first) * inv_len;
+        n_d.second = trafo * Normal3f(n_d.second) * inv_len;
+
+        n_d.first -= tn * dot(tn, n_d.first);
+        n_d.second -= tn * dot(tn, n_d.second);
+
+        return n_d;
+    }
 
     //! @}
     // =============================================================
