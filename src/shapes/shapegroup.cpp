@@ -52,13 +52,7 @@ public:
     const ShapeKDTree *kdtree() const  override { return m_kdtree.get(); }
     bool is_shapegroup() const override { return true; }
 
-    ScalarSize primitive_count() const override { 
-        return m_kdtree->primitive_count();
-        //ScalarSize result = 0;
-        //for (size_t i=0; i< m_kdtree->shape_count(); ++i)
-        //    result += m_kdtree->shape(i)->primitive_count();
-        //return result;
-    }
+    ScalarSize primitive_count() const override { return m_kdtree->primitive_count();}
 
     MTS_INLINE ScalarSize effective_primitive_count() const override { return 0; }
 
