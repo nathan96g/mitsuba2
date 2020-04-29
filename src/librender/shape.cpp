@@ -33,7 +33,6 @@ NAMESPACE_BEGIN(mitsuba)
 MTS_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.id()) {
     for (auto &kv : props.objects()) {
         Emitter *emitter = dynamic_cast<Emitter *>(kv.second.get());
-        Sensor *sensor = dynamic_cast<Sensor *>(kv.second.get());
         BSDF *bsdf = dynamic_cast<BSDF *>(kv.second.get());
         Medium *medium = dynamic_cast<Medium *>(kv.second.get());
 
@@ -55,10 +54,6 @@ MTS_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.
                     Throw("Only a single exterior medium can be specified per shape.");
                 m_exterior_medium = medium;
             }
-        } else if (sensor) {
-            if (m_sensor)
-                Throw("Only a single Sensor child object can be specified per shape.");
-            m_sensor = sensor;
         } else {
             Throw("Tried to add an unsupported object of type \"%s\"", kv.second);
         }
@@ -204,18 +199,14 @@ void embree_occluded(const RTCOccludedFunctionNArguments* args) {
 }
 
 MTS_VARIANT RTCGeometry Shape<Float, Spectrum>::embree_geometry(RTCDevice device) const {
-    if constexpr (!is_cuda_array_v<Float>) {
-        RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_USER);
-        rtcSetGeometryUserPrimitiveCount(geom, 1);
-        rtcSetGeometryUserData(geom, (void *) this);
-        rtcSetGeometryBoundsFunction(geom, embree_bbox<Float, Spectrum>, nullptr);
-        rtcSetGeometryIntersectFunction(geom, embree_intersect<Float, Spectrum>);
-        rtcSetGeometryOccludedFunction(geom, embree_occluded<Float, Spectrum>);
-        rtcCommitGeometry(geom);
-        return geom;
-    } else {
-        Throw("embree_geometry() should only be called in CPU mode.");
-    }
+    RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_USER);
+    rtcSetGeometryUserPrimitiveCount(geom, 1);
+    rtcSetGeometryUserData(geom, (void *) this);
+    rtcSetGeometryBoundsFunction(geom, embree_bbox<Float, Spectrum>, nullptr);
+    rtcSetGeometryIntersectFunction(geom, embree_intersect<Float, Spectrum>);
+    rtcSetGeometryOccludedFunction(geom, embree_occluded<Float, Spectrum>);
+    rtcCommitGeometry(geom);
+    return geom;
 }
 #endif
 
@@ -349,6 +340,17 @@ MTS_VARIANT void Shape<Float, Spectrum>::parameters_changed() {
         m_interior_medium->parameters_changed();
     if (m_exterior_medium)
         m_exterior_medium->parameters_changed();
+}
+
+MTS_VARIANT bool
+Shape<Float, Spectrum>::is_shapegroup() const {
+    return false;
+}
+
+MTS_VARIANT  const typename Shape<Float, Spectrum>::ShapeKDTree * 
+Shape<Float, Spectrum>::kdtree() const
+{
+    NotImplementedError("kdtree");
 }
 
 MTS_IMPLEMENT_CLASS_VARIANT(Shape, Object, "shape")
