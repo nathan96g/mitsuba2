@@ -7,6 +7,10 @@
 #include <mitsuba/render/kdtree.h>
 #include <mitsuba/render/bsdf.h>
 
+#if defined(MTS_ENABLE_EMBREE)
+    #include <embree3/rtcore.h>
+#endif
+
 NAMESPACE_BEGIN(mitsuba)
 
 template <typename Float, typename Spectrum>
@@ -146,6 +150,18 @@ public:
 
     //! @}
     // =============================================================
+
+    #if defined(MTS_ENABLE_EMBREE)
+    RTCGeometry embree_geometry(RTCDevice device) const override {
+        RTCGeometry instance = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_INSTANCE);
+        // get scene from the shapegroup
+        RTCScene scene  = m_shapegroup->scene(device);
+        rtcSetGeometryInstancedScene(instance, scene);
+        rtcSetGeometryTransform(); // set the transformation
+        rtcCommitGeometry(instance);
+        return geom;
+    }
+    #endif
 
     /// Declare RTTI data structures
     MTS_DECLARE_CLASS()

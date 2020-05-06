@@ -4,6 +4,10 @@
 #include <mitsuba/render/shape.h>
 #include <mitsuba/render/kdtree.h>
 
+#if defined(MTS_ENABLE_EMBREE)
+    #include <embree3/rtcore.h>
+#endif
+
 NAMESPACE_BEGIN(mitsuba)
 
 // description of shapegroup
@@ -18,13 +22,15 @@ public:
 
     ShapeGroup(const Properties &props){
         m_id = props.id(); 
+
         m_kdtree = new ShapeKDTree(props);
+        
         // Add all the child or throw an error
         for (auto &kv : props.objects()) {
 
             const Class *c_class = kv.second->class_();
 
-            if (/** c_class->derives_from(MTS_CLASS(ShapeGroup))  || **/c_class->name() == "Instance") {
+            if (c_class->name() == "Instance") {
                 Throw("Nested instancing is not permitted");
             } else if (c_class->derives_from(MTS_CLASS(Base))) {
                 Base *shape = static_cast<Base *>(kv.second.get());
@@ -41,10 +47,13 @@ public:
             }
         }
 
-        if (m_kdtree->primitive_count() < 100*1024)
-            m_kdtree->set_log_level(Trace);
-        if (!m_kdtree->ready())
-            m_kdtree->build();
+        // we don't build the kdtree in embree
+        #if not defined(MTS_ENABLE_EMBREE)
+            if (m_kdtree->primitive_count() < 100*1024)
+                m_kdtree->set_log_level(Trace);
+            if (!m_kdtree->ready())
+                m_kdtree->build();
+        #endif
     }
 
     ScalarBoundingBox3f bbox() const override{return ScalarBoundingBox3f();}
@@ -66,6 +75,17 @@ public:
                 << "]";
         return oss.str();
     }
+
+    #if defined(MTS_ENABLE_EMBREE)
+        RTCScene scene(RTCDevice device){
+            RTCScene scene = rtcNewScene(g_device);
+            for (Size i = 0; i < m_kdtree->shape_count(); ++i)
+                rtcAttachGeometry(scene, m_kdtree->shape(i)->embree_geometry(device));
+            
+            rtcCommitScene(scene);
+            return scene;
+        }
+    #endif
 
     /// Declare RTTI data structures
     MTS_DECLARE_CLASS()
