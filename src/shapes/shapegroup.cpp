@@ -24,10 +24,12 @@ public:
 
             const Class *c_class = kv.second->class_();
 
-            if (c_class->derives_from(MTS_CLASS(ShapeGroup)) || c_class->name() == "Instance") {
+            if (/** c_class->derives_from(MTS_CLASS(ShapeGroup))  || **/c_class->name() == "Instance") {
                 Throw("Nested instancing is not permitted");
             } else if (c_class->derives_from(MTS_CLASS(Base))) {
                 Base *shape = static_cast<Base *>(kv.second.get());
+                if (shape->is_shapegroup())
+                    Throw("Nested instancing is not permitted");
                 if (shape->is_emitter())
                     Throw("Instancing of emitters is not supported");
                 if (shape->is_sensor())
