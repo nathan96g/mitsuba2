@@ -157,7 +157,8 @@ public:
         // get scene from the shapegroup
         RTCScene scene  = m_shapegroup->scene(device);
         rtcSetGeometryInstancedScene(instance, scene);
-        rtcSetGeometryTransform(); // set the transformation
+        rtcSetGeometryTimeStepCount(instance,1);
+        rtcSetGeometryTransform(scene, 0, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,(float*)nullprt); // set the transformation
         rtcCommitGeometry(instance);
         return geom;
     }

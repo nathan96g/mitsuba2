@@ -47,8 +47,10 @@ public:
             }
         }
 
-        // we don't build the kdtree in embree
-        #if not defined(MTS_ENABLE_EMBREE)
+        
+        #if defined(MTS_ENABLE_EMBREE)
+            scene = nullptr;
+        #else // we don't build the kdtree in embree
             if (m_kdtree->primitive_count() < 100*1024)
                 m_kdtree->set_log_level(Trace);
             if (!m_kdtree->ready())
@@ -78,11 +80,15 @@ public:
 
     #if defined(MTS_ENABLE_EMBREE)
         RTCScene scene(RTCDevice device){
-            RTCScene scene = rtcNewScene(g_device);
-            for (Size i = 0; i < m_kdtree->shape_count(); ++i)
-                rtcAttachGeometry(scene, m_kdtree->shape(i)->embree_geometry(device));
+            if(scene == nullptr){ // We construct the BVH only once
+                scene = rtcNewScene(g_device);     
+                rtcSetSceneFlags(scene,RTC_SCENE_FLAG_DYNAMIC);
+                for (Size i = 0; i < m_kdtree->shape_count(); ++i)
+                    rtcAttachGeometry(scene, m_kdtree->shape(i)->embree_geometry(device));
             
-            rtcCommitScene(scene);
+                rtcCommitScene(scene);
+            }
+            
             return scene;
         }
     #endif
@@ -91,6 +97,9 @@ public:
     MTS_DECLARE_CLASS()
 private:
     ref<ShapeKDTree> m_kdtree;
+    #if defined(MTS_ENABLE_EMBREE)
+    RTCScene scene;
+    #endif
 };
 
 /// Implement RTTI data structures
