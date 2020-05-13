@@ -208,6 +208,10 @@ MTS_VARIANT RTCGeometry Shape<Float, Spectrum>::embree_geometry(RTCDevice device
     rtcCommitGeometry(geom);
     return geom;
 }
+
+MTS_VARIANT RTCScene Shape<Float, Spectrum>::embree_scene(RTCDevice /*device*/) {
+    NotImplementedError("embree_scene");
+}
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)

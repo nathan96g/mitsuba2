@@ -23,7 +23,11 @@ public:
     ShapeGroup(const Properties &props){
         m_id = props.id(); 
 
+        #if defined(MTS_ENABLE_EMBREE)
+        scene = nullptr;
+        #else
         m_kdtree = new ShapeKDTree(props);
+        #endif
         
         // Add all the child or throw an error
         for (auto &kv : props.objects()) {
@@ -40,32 +44,64 @@ public:
                     Throw("Instancing of emitters is not supported");
                 if (shape->is_sensor())
                     Throw("Instancing of sensors is not supported");
-                else
+                else {
+                    #if defined(MTS_ENABLE_EMBREE)
+                    m_shapes.push_back(shape);
+                    m_bbox.expand(shape->bbox());
+                    #else
                     m_kdtree->add_shape(shape);
+                    #endif
+                }
             } else {
                 Throw("Tried to add an unsupported object of type \"%s\"", kv.second);
             }
         }
 
         
-        #if defined(MTS_ENABLE_EMBREE)
-            scene = nullptr;
-        #else // we don't build the kdtree in embree
-            if (m_kdtree->primitive_count() < 100*1024)
-                m_kdtree->set_log_level(Trace);
-            if (!m_kdtree->ready())
-                m_kdtree->build();
+        #if not defined(MTS_ENABLE_EMBREE)
+        if (m_kdtree->primitive_count() < 100*1024)
+            m_kdtree->set_log_level(Trace);
+        if (!m_kdtree->ready())
+            m_kdtree->build();
         #endif
     }
 
-    ScalarBoundingBox3f bbox() const override{return ScalarBoundingBox3f();}
-    ScalarFloat surface_area() const override { return 0.f;}
+    #if defined(MTS_ENABLE_EMBREE)
+    // We would have prefere if it returned an invalid bbox
+    ScalarBoundingBox3f bbox() const override{ return m_bbox;}
+    
+    ScalarSize primitive_count() const override {
+        ScalarSize count = 0;
+        for (auto shape : m_shapes)
+            count += shape->primitive_count();
 
+        return count;
+    }
+
+    RTCScene embree_scene(RTCDevice device) override {
+        if(scene == nullptr){ // We construct the BVH only once
+            scene = rtcNewScene(device);     
+            rtcSetSceneFlags(scene,RTC_SCENE_FLAG_DYNAMIC);
+            for (auto shape : m_shapes)
+                rtcAttachGeometry(scene, shape->embree_geometry(device));
+
+            rtcCommitScene(scene);
+        }
+        return scene;
+    }
+    #else
+    // We would have prefere if it returned an invalid bbox
+    ScalarBoundingBox3f bbox() const override{ return m_kdtree->bbox();}
+    
+    ScalarSize primitive_count() const override { return m_kdtree->primitive_count();}
+    
     /// Return a pointer to the internal KD-tree
     const ShapeKDTree *kdtree() const  override { return m_kdtree.get(); }
-    bool is_shapegroup() const override { return true; }
+    #endif
 
-    ScalarSize primitive_count() const override { return m_kdtree->primitive_count();}
+    ScalarFloat surface_area() const override { return 0.f;}
+
+    bool is_shapegroup() const override { return true; }
 
     MTS_INLINE ScalarSize effective_primitive_count() const override { return 0; }
 
@@ -73,32 +109,21 @@ public:
         std::ostringstream oss;
             oss << "ShapeGroup[" << std::endl
                 << "  name = \"" << m_id << "\"," << std::endl
-                << "  prim_count = " << m_kdtree->primitive_count() << std::endl
+                << "  prim_count = " << primitive_count() << std::endl
                 << "]";
         return oss.str();
     }
 
-    #if defined(MTS_ENABLE_EMBREE)
-        RTCScene scene(RTCDevice device){
-            if(scene == nullptr){ // We construct the BVH only once
-                scene = rtcNewScene(g_device);     
-                rtcSetSceneFlags(scene,RTC_SCENE_FLAG_DYNAMIC);
-                for (Size i = 0; i < m_kdtree->shape_count(); ++i)
-                    rtcAttachGeometry(scene, m_kdtree->shape(i)->embree_geometry(device));
-            
-                rtcCommitScene(scene);
-            }
-            
-            return scene;
-        }
-    #endif
-
     /// Declare RTTI data structures
     MTS_DECLARE_CLASS()
 private:
-    ref<ShapeKDTree> m_kdtree;
+
     #if defined(MTS_ENABLE_EMBREE)
-    RTCScene scene;
+        RTCScene scene;
+        std::vector<ref<Base>> m_shapes;
+        ScalarBoundingBox3f m_bbox;
+    #else
+        ref<ShapeKDTree> m_kdtree;
     #endif
 };
 

@@ -42,8 +42,7 @@ public:
     }
 
    ScalarBoundingBox3f bbox() const override{
-       const ShapeKDTree *kdtree = m_shapegroup->kdtree();
-       const ScalarBoundingBox3f &bbox = kdtree->bbox();
+       const ScalarBoundingBox3f &bbox = m_shapegroup->bbox();
        if (!bbox.valid()) // the geometry group is empty
            return bbox;
        // Collect Key frame time
@@ -155,12 +154,12 @@ public:
     RTCGeometry embree_geometry(RTCDevice device) const override {
         RTCGeometry instance = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_INSTANCE);
         // get scene from the shapegroup
-        RTCScene scene  = m_shapegroup->scene(device);
+        RTCScene scene  = (const_cast<Base*>(m_shapegroup.get()) )->embree_scene(device);
         rtcSetGeometryInstancedScene(instance, scene);
         rtcSetGeometryTimeStepCount(instance,1);
-        rtcSetGeometryTransform(scene, 0, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,(float*)nullprt); // set the transformation
+        //rtcSetGeometryTransform(scene, 0, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,(float*) m_transform->matrix); // set the transformation
         rtcCommitGeometry(instance);
-        return geom;
+        return instance;
     }
     #endif
 

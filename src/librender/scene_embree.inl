@@ -30,7 +30,8 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_cpu(const Properties &/*prop
     RTCScene embree_scene = rtcNewScene(__embree_device);
     m_accel = embree_scene;
     for (Shape *shape : m_shapes)
-        rtcAttachGeometry(embree_scene, shape->embree_geometry(__embree_device));
+        if(!shape->is_shapegroup())
+            rtcAttachGeometry(embree_scene, shape->embree_geometry(__embree_device));
     rtcCommitScene(embree_scene);
     Log(Info, "Embree ready. (took %s)", util::time_string(timer.value()));
 }
