@@ -9,6 +9,7 @@
 
 #if defined(MTS_ENABLE_EMBREE)
     #include <embree3/rtcore.h>
+    #include <enoki/transform.h>
 #endif
 
 NAMESPACE_BEGIN(mitsuba)
@@ -99,12 +100,20 @@ public:
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-        const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         const Transform4f &trafo = m_transform->eval(ray.time);
         Ray3f trafo_ray(trafo.inverse() * ray);
+        SurfaceInteraction3f si(si_out);
 
+        #if defined(MTS_ENABLE_EMBREE)
+        size_t shape_index = cache[2];
+        Float mesh_cache[2] = {cache[0], cache[1]};
+        si.shape = m_shapegroup->shape(shape_index);
+        si.shape->fill_surface_interaction(trafo_ray, mesh_cache, si, active);
+        #else
+        const ShapeKDTree *kdtree = m_shapegroup->kdtree();
         // create_surface_interaction use the cache to fill correctly the surface interaction
-        SurfaceInteraction3f si(kdtree->create_surface_interaction(trafo_ray, si_out.t, cache));
+        si = kdtree->create_surface_interaction(trafo_ray, si.t, cache));
+        #endif
 
         si.sh_frame.n = normalize(trafo.transform_affine(si.sh_frame.n));
         si.n = normalize(trafo.transform_affine(si.n));
@@ -151,14 +160,19 @@ public:
     // =============================================================
 
     #if defined(MTS_ENABLE_EMBREE)
-    RTCGeometry embree_geometry(RTCDevice device) const override {
-        RTCGeometry instance = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_INSTANCE);
-        // get scene from the shapegroup
-        RTCScene scene  = (const_cast<Base*>(m_shapegroup.get()) )->embree_scene(device);
-        rtcSetGeometryInstancedScene(instance, scene);
-        rtcSetGeometryTimeStepCount(instance,1);
-        //rtcSetGeometryTransform(scene, 0, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,(float*) m_transform->matrix); // set the transformation
+    RTCGeometry embree_geometry(RTCDevice device) const override {  
+        RTCGeometry instance = m_shapegroup->embree_geometry(device);
+        rtcSetGeometryTimeStepCount(instance, 1);
+
+        // Set the transformation for the ray intersect
+        Matrix<float, 4> matrix = m_transform->eval(0).matrix;
+        float transform[16];
+        for( size_t i = 0; i < 16; ++i)
+            transform[i] = matrix(i%4, i/4);    
+        rtcSetGeometryTransform(instance, 0, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, transform);
+
         rtcCommitGeometry(instance);
+
         return instance;
     }
     #endif

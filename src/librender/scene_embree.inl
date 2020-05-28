@@ -28,10 +28,15 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_cpu(const Properties &/*prop
 
     Timer timer;
     RTCScene embree_scene = rtcNewScene(__embree_device);
+    rtcSetSceneFlags(embree_scene,RTC_SCENE_FLAG_DYNAMIC);
     m_accel = embree_scene;
-    for (Shape *shape : m_shapes)
-        if(!shape->is_shapegroup())
-            rtcAttachGeometry(embree_scene, shape->embree_geometry(__embree_device));
+
+    for (Shape *shape : m_shapes){
+        RTCGeometry geom = shape->embree_geometry(__embree_device);
+        rtcAttachGeometry(embree_scene, geom);
+    }
+       
+            
     rtcCommitScene(embree_scene);
     Log(Info, "Embree ready. (took %s)", util::time_string(timer.value()));
 }
@@ -46,7 +51,7 @@ Scene<Float, Spectrum>::ray_intersect_cpu(const Ray3f &ray, Mask active) const {
         RTCIntersectContext context;
         rtcInitIntersectContext(&context);
         SurfaceInteraction3f si = zero<SurfaceInteraction3f>();
-
+        
         if constexpr (!is_array_v<Float>) {
             RTCRayHit rh;
             rh.ray.org_x = ray.o.x();
@@ -67,19 +72,30 @@ Scene<Float, Spectrum>::ray_intersect_cpu(const Ray3f &ray, Mask active) const {
                 ScopedPhase sp(ProfilerPhase::CreateSurfaceInteraction);
                 uint32_t shape_index = rh.hit.geomID;
                 uint32_t prim_index = rh.hit.primID;
+                // We get level 0 because we only support one level
+                // of instancing for now
+                uint32_t inst_index = rh.hit.instID[0];
 
                 // Fill in basic information common to all shapes
                 si.t = rh.ray.tfar;
                 si.time = ray.time;
                 si.wavelengths = ray.wavelengths;
-                si.shape = m_shapes[shape_index];
                 si.prim_index = prim_index;
 
-                // Create the cache for the Mesh shape
-                Float cache[2] = { rh.hit.u, rh.hit.v };
-
-                // Ask shape to fill in the rest
-                si.shape->fill_surface_interaction(ray, cache, si);
+                // If the hit is not on an instance
+                if( inst_index == RTC_INVALID_GEOMETRY_ID ) {
+                    // If the hit is not on an instance
+                    si.shape = m_shapes[shape_index];
+                    // Create the cache for the Mesh shape
+                    Float cache[2] = { rh.hit.u, rh.hit.v };
+                    // Ask shape to fill in the rest
+                    si.shape->fill_surface_interaction(ray, cache, si);       
+                } else {
+                    // If the hit is on an instance
+                    si.instance = m_shapes[inst_index];
+                    Float cache[3] = { rh.hit.u, rh.hit.v, (Float)shape_index};
+                    si.instance->fill_surface_interaction(ray, cache, si);
+                }
 
                 // Gram-schmidt orthogonalization to compute local shading frame
                 si.sh_frame.s = normalize(

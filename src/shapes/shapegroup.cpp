@@ -78,10 +78,9 @@ public:
         return count;
     }
 
-    RTCScene embree_scene(RTCDevice device) override {
+    RTCScene embree_scene(RTCDevice device) {
         if(scene == nullptr){ // We construct the BVH only once
-            scene = rtcNewScene(device);     
-            rtcSetSceneFlags(scene,RTC_SCENE_FLAG_DYNAMIC);
+            scene = rtcNewScene(device);
             for (auto shape : m_shapes)
                 rtcAttachGeometry(scene, shape->embree_geometry(device));
 
@@ -89,6 +88,17 @@ public:
         }
         return scene;
     }
+
+    RTCGeometry embree_geometry(RTCDevice device) const override {
+        RTCGeometry instance = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_INSTANCE);
+        // get scene from the shapegroup
+        RTCScene scene  = (const_cast<ShapeGroup*>(this))->embree_scene(device);
+        rtcSetGeometryInstancedScene(instance, scene);
+
+        return instance;
+    }
+
+    const Base *shape(size_t i) const override { Assert(i < m_shapes.size()); return m_shapes[i]; }
     #else
     // We would have prefere if it returned an invalid bbox
     ScalarBoundingBox3f bbox() const override{ return m_kdtree->bbox();}

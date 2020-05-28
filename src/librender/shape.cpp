@@ -209,8 +209,9 @@ MTS_VARIANT RTCGeometry Shape<Float, Spectrum>::embree_geometry(RTCDevice device
     return geom;
 }
 
-MTS_VARIANT RTCScene Shape<Float, Spectrum>::embree_scene(RTCDevice /*device*/) {
-    NotImplementedError("embree_scene");
+MTS_VARIANT  const Shape<Float, Spectrum>* Shape<Float, Spectrum>::shape(size_t /*i*/) const
+{
+    NotImplementedError("shape");
 }
 #endif
 
