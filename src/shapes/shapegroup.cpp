@@ -23,9 +23,7 @@ public:
     ShapeGroup(const Properties &props){
         m_id = props.id(); 
 
-        #if defined(MTS_ENABLE_EMBREE)
-        scene = nullptr;
-        #else
+        #if not defined(MTS_ENABLE_EMBREE)
         m_kdtree = new ShapeKDTree(props);
         #endif
         
@@ -78,35 +76,69 @@ public:
         return count;
     }
 
-    RTCScene embree_scene(RTCDevice device) {
-        if(scene == nullptr){ // We construct the BVH only once
-            scene = rtcNewScene(device);
+    void build_embree_scene(RTCDevice device) {
+        if(m_scene == nullptr){ // We construct the BVH only once
+            m_scene = rtcNewScene(device);
             for (auto shape : m_shapes)
-                rtcAttachGeometry(scene, shape->embree_geometry(device));
+                rtcAttachGeometry(m_scene, shape->embree_geometry(device));
 
-            rtcCommitScene(scene);
+            rtcCommitScene(m_scene);
         }
-        return scene;
     }
 
     RTCGeometry embree_geometry(RTCDevice device) const override {
         RTCGeometry instance = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_INSTANCE);
-        // get scene from the shapegroup
-        RTCScene scene  = (const_cast<ShapeGroup*>(this))->embree_scene(device);
-        rtcSetGeometryInstancedScene(instance, scene);
+        // Ensure that the scene of the shapegroup is build
+        (const_cast<ShapeGroup*>(this))->build_embree_scene(device);
+        rtcSetGeometryInstancedScene(instance, m_scene);
 
         return instance;
     }
 
-    const Base *shape(size_t i) const override { Assert(i < m_shapes.size()); return m_shapes[i]; }
+    void fill_surface_interaction(const Ray3f &ray, const Float * cache,
+                                  SurfaceInteraction3f &si_out, Mask active) const override {
+        MTS_MASK_ARGUMENT(active);
+        SurfaceInteraction3f si(si_out);
+
+        // Extract intersected shape from cache
+        if constexpr (!is_array_v<Float>) {
+            size_t shape_index = cache[2];
+            Assert(shape_index < m_shapes.size());
+            si.shape = m_shapes[shape_index];
+        } else {
+            using ShapePtr = replace_scalar_t<Float, const Base *>;
+            Mask hit = active && neq(cache[3], ray.maxt);
+            UInt32 shape_index = cache[2];
+            Assert(shape_index < m_shapes.size());
+            si.shape = gather<ShapePtr>(m_shapes.data(), shape_index, hit);
+        }
+
+        Float extracted_cache[2] = {cache[0], cache[1]};
+        si.shape->fill_surface_interaction(ray, extracted_cache, si, active);
+        si_out[active] = si;
+    }
     #else
     // We would have prefere if it returned an invalid bbox
     ScalarBoundingBox3f bbox() const override{ return m_kdtree->bbox();}
     
     ScalarSize primitive_count() const override { return m_kdtree->primitive_count();}
-    
-    /// Return a pointer to the internal KD-tree
-    const ShapeKDTree *kdtree() const  override { return m_kdtree.get(); }
+
+    std::pair<Mask, Float> ray_intersect(const Ray3f &ray, Float * cache,
+                                         Mask active) const override {
+        MTS_MASK_ARGUMENT(active);
+        return m_kdtree->template ray_intersect<false>(ray, cache, active);
+    }
+
+    Mask ray_test(const Ray3f &ray, Mask active) const override {
+        MTS_MASK_ARGUMENT(active);
+        return m_kdtree->template ray_intersect<true>(ray, (Float* ) nullptr, active).first;
+    }
+
+    void fill_surface_interaction(const Ray3f &ray, const Float * cache,
+                                  SurfaceInteraction3f &si_out, Mask active) const override {
+        MTS_MASK_ARGUMENT(active);
+        si_out[active] = m_kdtree->create_surface_interaction(ray, si_out.t, cache);
+    }
     #endif
 
     ScalarFloat surface_area() const override { return 0.f;}
@@ -129,7 +161,7 @@ public:
 private:
 
     #if defined(MTS_ENABLE_EMBREE)
-        RTCScene scene;
+        RTCScene m_scene = nullptr;
         std::vector<ref<Base>> m_shapes;
         ScalarBoundingBox3f m_bbox;
     #else

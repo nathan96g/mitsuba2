@@ -208,11 +208,6 @@ MTS_VARIANT RTCGeometry Shape<Float, Spectrum>::embree_geometry(RTCDevice device
     rtcCommitGeometry(geom);
     return geom;
 }
-
-MTS_VARIANT  const Shape<Float, Spectrum>* Shape<Float, Spectrum>::shape(size_t /*i*/) const
-{
-    NotImplementedError("shape");
-}
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)
@@ -350,12 +345,6 @@ MTS_VARIANT void Shape<Float, Spectrum>::parameters_changed() {
 MTS_VARIANT bool
 Shape<Float, Spectrum>::is_shapegroup() const {
     return false;
-}
-
-MTS_VARIANT  const typename Shape<Float, Spectrum>::ShapeKDTree * 
-Shape<Float, Spectrum>::kdtree() const
-{
-    NotImplementedError("kdtree");
 }
 
 MTS_IMPLEMENT_CLASS_VARIANT(Shape, Object, "shape")

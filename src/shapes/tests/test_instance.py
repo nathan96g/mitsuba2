@@ -122,11 +122,13 @@ def test03_bbox(variant_scalar_rgb):
     # By construction:
     assert b2.contains(b1)
 
-
 def test03_ray_intersect_transform(variant_scalar_rgb):
     if mitsuba.core.MTS_ENABLE_EMBREE:
         pytest.skip("EMBREE enabled")
 
+    """Test if the to_world tranform in the instance
+       behave correctly, it is the same test that the ray_interset test
+       in test_sphere but with an instance""" 
     from mitsuba.core import Ray3f
 
     for r in [1, 3]:

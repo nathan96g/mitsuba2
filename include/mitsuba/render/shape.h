@@ -2,6 +2,7 @@
 
 #include <mitsuba/render/records.h>
 #include <mitsuba/core/bbox.h>
+#include <enoki/stl.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
@@ -306,13 +307,6 @@ public:
      * \remark The default implementation return false.
      */
     virtual bool is_shapegroup() const; 
-    
-    /**
-     * \brief Return a pointer to the internal KD-tree (if any)
-     *
-     * \remark The default implementation throws an exception.
-     */
-    virtual const ShapeKDTree *kdtree() const;
 
 #if defined(MTS_ENABLE_EMBREE)
     /// Return the Embree version of this shape
