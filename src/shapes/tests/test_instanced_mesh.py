@@ -2,6 +2,8 @@ import mitsuba
 import pytest
 import enoki as ek
 
+# TEST INSTANCING WITH AN MESH OF SPHERE
+
 def example_scene_mesh(scale = (1,1,1), translate = (0,0,0), rot = (0,0,0)):
     from mitsuba.core.xml import load_string
 
@@ -46,8 +48,56 @@ def example_scene_mesh_inst(scale = (1,1,1), translate = (0,0,0), rot = (0,0,0))
                            translate[0], translate[1], translate[2],
                            rot[0], rot[1], rot[2]))
 
+def test01_ray_intersect(variant_scalar_rgb):
+    if mitsuba.core.MTS_ENABLE_EMBREE:
+        pytest.skip("EMBREE enabled")
 
-def test03_ray_intersect_transform(variant_scalar_rgb):
+    from mitsuba.core import Ray3f
+
+    s = example_scene_mesh()
+    s_inst = example_scene_mesh_inst()
+    # grid size
+    n = 21
+    inv_n = 1.0 / n
+
+    for x in range(n):
+        for y in range(n):
+            x_coord = (2 * (x * inv_n) - 1)
+            y_coord = (2 * (y * inv_n) - 1)
+            ray = Ray3f(o=[x_coord, y_coord + 1, -8], d=[0.0, 0.0, 1.0],
+                        time=0.0, wavelengths=[])
+            
+            si_found = s.ray_test(ray)
+            si_found_inst = s_inst.ray_test(ray)
+
+            assert si_found == si_found_inst
+
+            if si_found:
+                ray = Ray3f(o=[x_coord, y_coord + 1, -8], d=[0.0, 0.0, 1.0],
+                            time=0.0, wavelengths=[])
+                
+                si = s.ray_intersect(ray)
+                si_inst = s_inst.ray_intersect(ray)
+
+                assert si.prim_index == si_inst.prim_index
+                assert si.instance is None
+                assert si_inst.instance is not None
+                # we don't compare the shape, because the shape of
+                # non-instance version is transform before intersection
+                # and the instance version is not
+                assert ek.allclose(si.t, si_inst.t, atol=2e-2)
+                assert ek.allclose(si.time, si_inst.time, atol=2e-2)
+                assert ek.allclose(si.p, si_inst.p, atol=2e-2)
+                assert ek.allclose(si.wi, si_inst.wi, atol=2e-2)
+
+                u, v = si.shape.normal_derivative(si)
+                u_inst, v_inst = si_inst.instance.normal_derivative(si)
+            
+                assert ek.allclose(ek.normalize(u), ek.normalize(u_inst), atol=2e-2)
+                assert ek.allclose(ek.normalize(v), ek.normalize(v_inst), atol=2e-2)
+
+
+def test02_ray_intersect_transform(variant_scalar_rgb):
     if mitsuba.core.MTS_ENABLE_EMBREE:
         pytest.skip("EMBREE enabled")
 
@@ -89,3 +139,18 @@ def test03_ray_intersect_transform(variant_scalar_rgb):
                     assert ek.allclose(si.time, si_inst.time, atol=2e-2)
                     assert ek.allclose(si.p, si_inst.p, atol=2e-2)
                     assert ek.allclose(si.wi, si_inst.wi, atol=2e-2)
+
+                    u, v = si.shape.normal_derivative(si, shading_frame=False)
+                    u_inst, v_inst = si_inst.instance.normal_derivative(si, shading_frame=False)
+
+                    assert ek.allclose(u, u_inst)
+                    assert ek.allclose(v, v_inst)
+
+                    u, v = si.shape.normal_derivative(si)
+                    u_inst, v_inst = si_inst.instance.normal_derivative(si)
+
+                    # less close with transformation because of transform, norm and
+                    # interpolation are not done in the same order for instanced and
+                    # not instanced version. And norm is not a linear operation
+                    assert ek.allclose(ek.normalize(u), ek.normalize(u_inst), atol=6e-1)
+                    assert ek.allclose(ek.normalize(v), ek.normalize(v_inst), atol=6e-1)

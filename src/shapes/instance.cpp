@@ -106,7 +106,7 @@ public:
         si.dp_dv = trafo.transform_affine(si.dp_dv);
         si.p = trafo.transform_affine(si.p);
         si.instance = this;
-        si_out[active] = si;
+        masked(si_out, active) = si;
     }
 
     std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f &si,
@@ -130,11 +130,11 @@ public:
         
         std::pair<Vector3f, Vector3f> n_d = si.shape->normal_derivative(temp, shading_frame, active);
 
-        // apply inverse transpose to  dndu dans dndv
-        n_d.first = trafo * Normal3f(n_d.first) * inv_len;
+        // apply inverse transpose to  dndu and dndv
+        n_d.first =  trafo * Normal3f(n_d.first)  * inv_len;
         n_d.second = trafo * Normal3f(n_d.second) * inv_len;
 
-        n_d.first -= tn * dot(tn, n_d.first);
+        n_d.first  -= tn * dot(tn, n_d.first);
         n_d.second -= tn * dot(tn, n_d.second);
 
         return n_d;

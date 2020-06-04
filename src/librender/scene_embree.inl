@@ -149,19 +149,17 @@ Scene<Float, Spectrum>::ray_intersect_cpu(const Ray3f &ray, Mask active) const {
                 si.wavelengths = ray.wavelengths;
                 si.prim_index = prim_index;
 
-                // If the hit is not on an instance
-                if(!likely(all(neq(inst_index, RTC_INVALID_GEOMETRY_ID)))) {
-                    si.shape = gather<ShapePtr>(m_shapes.data(), shape_index, hit);
-                    Float cache[2] = { load<Float>(rh.hit.u), load<Float>(rh.hit.v)};
-                    // Ask shape(s) to fill in the rest
-                    si.shape->fill_surface_interaction(ray, cache, si, active);
-                } else {
-                    si.instance = gather<ShapePtr>(m_shapes.data(), inst_index, hit);
-                    Float cache[4] = { load<Float>(rh.hit.u), load<Float>(rh.hit.v), 
-                                       inst_index, load<Float>(rh.ray.tfar)};
-                    // Ask shape(s) to fill in the rest
-                    si.instance->fill_surface_interaction(ray, cache, si, active);
-                }
+                Mask hit_not_inst = hit && eq(inst_index, RTC_INVALID_GEOMETRY_ID);
+                Mask hit_inst     = hit && neq(inst_index, RTC_INVALID_GEOMETRY_ID);
+
+                // Set si.instance and si.shape
+                UInt32 index   = select(hit_inst, inst_index, shape_index);
+                ShapePtr shape = gather<ShapePtr>(m_shapes.data(), index, hit);
+                masked(si.instance, hit_inst)  = shape;
+                masked(si.shape, hit_not_inst) = shape;
+
+                Float cache[3] = { load<Float>(rh.hit.u), load<Float>(rh.hit.v), inst_index};
+                shape->fill_surface_interaction(ray, cache, si, hit);
 
                 // Gram-schmidt orthogonalization to compute local shading frame
                 si.sh_frame.s = normalize(

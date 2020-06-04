@@ -107,15 +107,14 @@ public:
             si.shape = m_shapes[shape_index];
         } else {
             using ShapePtr = replace_scalar_t<Float, const Base *>;
-            Mask hit = active && neq(cache[3], ray.maxt);
             UInt32 shape_index = cache[2];
             Assert(shape_index < m_shapes.size());
-            si.shape = gather<ShapePtr>(m_shapes.data(), shape_index, hit);
+            si.shape = gather<ShapePtr>(m_shapes.data(), shape_index, active);
         }
 
         Float extracted_cache[2] = {cache[0], cache[1]};
         si.shape->fill_surface_interaction(ray, extracted_cache, si, active);
-        si_out[active] = si;
+        masked(si_out, active) = si;
     }
     #else
     // We would have prefere if it returned an invalid bbox
@@ -137,7 +136,7 @@ public:
     void fill_surface_interaction(const Ray3f &ray, const Float * cache,
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
-        si_out[active] = m_kdtree->create_surface_interaction(ray, si_out.t, cache);
+        masked(si_out, active) = m_kdtree->create_surface_interaction(ray, si_out.t, cache, active);
     }
     #endif
 

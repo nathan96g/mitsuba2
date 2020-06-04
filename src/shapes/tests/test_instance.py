@@ -3,7 +3,7 @@ import pytest
 import enoki as ek
 
 
-# ANALYTIC SPHERE
+# TEST INSTANCING WITH AN ANALYTIC SPHERE
 
 def example_scene(scale = (1,1,1), translate = (0,0,0), rot = (0,0,0)):
     from mitsuba.core.xml import load_string
@@ -122,7 +122,7 @@ def test03_bbox(variant_scalar_rgb):
     # By construction:
     assert b2.contains(b1)
 
-def test03_ray_intersect_transform(variant_scalar_rgb):
+def test04_ray_intersect_transform(variant_scalar_rgb):
     if mitsuba.core.MTS_ENABLE_EMBREE:
         pytest.skip("EMBREE enabled")
 
@@ -166,3 +166,55 @@ def test03_ray_intersect_transform(variant_scalar_rgb):
                     if si_v.is_valid():
                         dv = (si_v.uv - si.uv) / eps
                         assert ek.allclose(dv, [0, 1], atol=2e-2)
+
+
+def test05_ray_intersect_transform(variant_scalar_rgb):
+    if mitsuba.core.MTS_ENABLE_EMBREE:
+        pytest.skip("EMBREE enabled")
+
+    """Test if the instanced sphere has the same behavior than
+        a non-instanced sphere""" 
+    from mitsuba.core import Ray3f
+
+    for r in [1, 3]:
+        s = example_scene(scale=(r, r, r),translate=(0,1,0), rot=(0,30,0))
+        s_inst = example_scene_inst(scale=(r, r, r),translate=(0,1,0), rot=(0,30,0))
+        # grid size
+        n = 21
+        inv_n = 1.0 / n
+
+        for x in range(n):
+            for y in range(n):
+                x_coord = r * (2 * (x * inv_n) - 1)
+                y_coord = r * (2 * (y * inv_n) - 1)
+
+                ray = Ray3f(o=[x_coord, y_coord + 1, -8], d=[0.0, 0.0, 1.0],
+                            time=0.0, wavelengths=[])
+                si_found = s.ray_test(ray)
+                si_found_inst = s_inst.ray_test(ray)
+
+                assert si_found == si_found_inst
+
+                if si_found:
+                    ray = Ray3f(o=[x_coord, y_coord + 1, -8], d=[0.0, 0.0, 1.0],
+                                time=0.0, wavelengths=[])
+                    
+                    si = s.ray_intersect(ray)
+                    si_inst = s_inst.ray_intersect(ray)
+
+                    assert si.prim_index == si_inst.prim_index
+                    assert si.instance is None
+                    assert si_inst.instance is not None
+                    # we don't compare the shape, because the shape of
+                    # non-instance version is transform before intersection
+                    # and the instance version is not
+                    assert ek.allclose(si.t, si_inst.t, atol=2e-2)
+                    assert ek.allclose(si.time, si_inst.time, atol=2e-2)
+                    assert ek.allclose(si.p, si_inst.p, atol=2e-2)
+                    assert ek.allclose(si.wi, si_inst.wi, atol=2e-2)
+
+                    u, v = si.shape.normal_derivative(si)
+                    u_inst, v_inst = si_inst.instance.normal_derivative(si)
+            
+                    assert ek.allclose(ek.normalize(u), ek.normalize(u_inst), atol=2e-2)
+                    assert ek.allclose(ek.normalize(v), ek.normalize(v_inst), atol=2e-2)
