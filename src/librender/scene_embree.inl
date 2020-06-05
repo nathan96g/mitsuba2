@@ -31,17 +31,19 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_cpu(const Properties &/*prop
     rtcSetSceneFlags(embree_scene,RTC_SCENE_FLAG_DYNAMIC);
     m_accel = embree_scene;
 
-    for (Shape *shape : m_shapes){
-        RTCGeometry geom = shape->embree_geometry(__embree_device);
-        rtcAttachGeometry(embree_scene, geom);
-    }
-       
+    for (Shape *shapegroup : m_shapegroups)
+        shapegroup->init_embree_scene(__embree_device);
+
+    for (Shape *shape : m_shapes)
+         rtcAttachGeometry(embree_scene, shape->embree_geometry(__embree_device));
             
     rtcCommitScene(embree_scene);
     Log(Info, "Embree ready. (took %s)", util::time_string(timer.value()));
 }
 
 MTS_VARIANT void Scene<Float, Spectrum>::accel_release_cpu() {
+    for (Shape *shapegroup : m_shapegroups)
+        shapegroup->release_embree_scene();
     rtcReleaseScene((RTCScene) m_accel);
 }
 
@@ -158,7 +160,7 @@ Scene<Float, Spectrum>::ray_intersect_cpu(const Ray3f &ray, Mask active) const {
                 masked(si.instance, hit_inst)  = shape;
                 masked(si.shape, hit_not_inst) = shape;
 
-                Float cache[3] = { load<Float>(rh.hit.u), load<Float>(rh.hit.v), inst_index};
+                Float cache[3] = { load<Float>(rh.hit.u), load<Float>(rh.hit.v), shape_index};
                 shape->fill_surface_interaction(ray, cache, si, hit);
 
                 // Gram-schmidt orthogonalization to compute local shading frame

@@ -15,7 +15,7 @@ NAMESPACE_BEGIN(mitsuba)
 template <typename Float, typename Spectrum>
 class ShapeGroup final: public Shape<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Shape, is_emitter, is_sensor, m_id)
+    MTS_IMPORT_BASE(Shape, is_emitter, is_sensor, m_id, m_shapegroup)
     MTS_IMPORT_TYPES(ShapeKDTree)
 
     using typename Base::ScalarSize;
@@ -61,13 +61,13 @@ public:
             m_kdtree->set_log_level(Trace);
         if (!m_kdtree->ready())
             m_kdtree->build();
+        m_bbox = m_kdtree->bbox();
         #endif
+
+        m_shapegroup = true;
     }
 
     #if defined(MTS_ENABLE_EMBREE)
-    // We would have prefere if it returned an invalid bbox
-    ScalarBoundingBox3f bbox() const override{ return m_bbox;}
-    
     ScalarSize primitive_count() const override {
         ScalarSize count = 0;
         for (auto shape : m_shapes)
@@ -76,7 +76,7 @@ public:
         return count;
     }
 
-    void build_embree_scene(RTCDevice device) {
+    void init_embree_scene(RTCDevice device) override{
         if(m_scene == nullptr){ // We construct the BVH only once
             m_scene = rtcNewScene(device);
             for (auto shape : m_shapes)
@@ -86,10 +86,15 @@ public:
         }
     }
 
+    void release_embree_scene() override {
+        rtcReleaseScene(m_scene);
+    }
+
     RTCGeometry embree_geometry(RTCDevice device) const override {
         RTCGeometry instance = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_INSTANCE);
         // Ensure that the scene of the shapegroup is build
-        (const_cast<ShapeGroup*>(this))->build_embree_scene(device);
+        if(m_scene == nullptr)
+            Throw("Embree scene not initialized, call init_embree_scene() first");
         rtcSetGeometryInstancedScene(instance, m_scene);
 
         return instance;
@@ -117,8 +122,6 @@ public:
         masked(si_out, active) = si;
     }
     #else
-    // We would have prefere if it returned an invalid bbox
-    ScalarBoundingBox3f bbox() const override{ return m_kdtree->bbox();}
     
     ScalarSize primitive_count() const override { return m_kdtree->primitive_count();}
 
@@ -140,9 +143,10 @@ public:
     }
     #endif
 
-    ScalarFloat surface_area() const override { return 0.f;}
+    // We would have prefere if it returned an invalid bbox
+    ScalarBoundingBox3f bbox() const override{ return m_bbox;}
 
-    bool is_shapegroup() const override { return true; }
+    ScalarFloat surface_area() const override { return 0.f;}
 
     MTS_INLINE ScalarSize effective_primitive_count() const override { return 0; }
 
@@ -158,11 +162,11 @@ public:
     /// Declare RTTI data structures
     MTS_DECLARE_CLASS()
 private:
-
+    ScalarBoundingBox3f m_bbox;
+    
     #if defined(MTS_ENABLE_EMBREE)
         RTCScene m_scene = nullptr;
         std::vector<ref<Base>> m_shapes;
-        ScalarBoundingBox3f m_bbox;
     #else
         ref<ShapeKDTree> m_kdtree;
     #endif

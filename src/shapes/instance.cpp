@@ -128,16 +128,16 @@ public:
         Float inv_len = 1 / norm(tn);
         tn *= inv_len; // normalize
         
-        std::pair<Vector3f, Vector3f> n_d = si.shape->normal_derivative(temp, shading_frame, active);
+        auto [dndu, dndv] = si.shape->normal_derivative(temp, shading_frame, active);
 
         // apply inverse transpose to  dndu and dndv
-        n_d.first =  trafo * Normal3f(n_d.first)  * inv_len;
-        n_d.second = trafo * Normal3f(n_d.second) * inv_len;
+        dndu =  trafo * Normal3f(dndu)  * inv_len;
+        dndv = trafo * Normal3f(dndv) * inv_len;
 
-        n_d.first  -= tn * dot(tn, n_d.first);
-        n_d.second -= tn * dot(tn, n_d.second);
+        dndu -= tn * dot(tn, dndu);
+        dndv -= tn * dot(tn, dndv);
 
-        return n_d;
+        return {dndu, dndv};
     }
 
     //! @}
